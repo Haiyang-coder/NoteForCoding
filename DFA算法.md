@@ -1,18 +1,18 @@
-#DFA算法实现敏感词的过滤
-##1.算法用到的数据结构
+# DFA算法实现敏感词的过滤
+## 1.算法用到的数据结构
 ![图示数据结构](https://raw.githubusercontent.com/Haiyang-coder/ImageRepository/main/dd.png)
->如图所示
+如图所示
 >1. 森林:敏感词库
 >2. 树:都是开头字符相同的敏感词汇
 >3. 节点:节点需要包含连个信息
-> 1.单个敏感字符
-> 2.是否是敏感词的结尾
+> (1).单个敏感字符
+> (2).是否是敏感词的结尾
 
 
-##2.算法的java代码实现
+## 2.算法的java代码实现
 代码中采用了hashmap的数据结构,key和vlues 都是obj类型有以下几种搭配
 >"endl" = "1"
->"操" = {}(这里的{}里面存放的是HashMap()结构)
+"操" = {}(这里的{}里面存放的是HashMap()结构)
 如此的循环套娃就成了
 ```java
 package com.shk.utils;
