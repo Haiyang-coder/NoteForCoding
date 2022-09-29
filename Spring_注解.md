@@ -46,3 +46,42 @@
 **Spring整合Mybatis**
 >1. 新建一个mybatis的配置类,他的作用就相当于mybatis的xml配置文件,mybatis贴心的准备了模版类sqlDessionFactoryBean,这个类就是为了生成sqlSessionFactory对象
 >2. 在Bean中添加完sqlSessionFactory后在添加一个Mapper对象
+
+**通知类注解**
+>@before,JoinPoint参数可以获取连接点的参数
+>@After
+>**@Around**，ProceedingJoinPoint参数代表原始方法的调用，而且这个对象有连接点的各种信息.连接点有返回值的话，需要把通知的返回值改成连接点的返回值（一般是Object）并且Return回去来代替你原始方法的返回值.
+>@AfterReturning,这个注解可以获取到连接点返回值,用参数中的returnning参数搞定
+>@AfterThrowing,抛出异常后才运行
+
+**ProceedingJoinPoint**
+>这里单独说一下这个对象,因为能获取连接点的各种信息,那么他也可以修改连接点的信息,如传入的参数,返回的返回值,从而对连接点的输出造成影响.因为之后环绕通知需要操作目标对象所以只有环绕通知才会用到这个对象.
+
+**Spring事务管理**
+>1. Spring的事务管理器是基于JDBC的实物管理来做的,即开启事务,提交实物,Spring整合之后有下面几个注释
+>2. 因为是依靠的JDBC提供的事务管理,所以要在JDBC的config里面加载一个Bean,PlatformtransactionManager接口和实现它的transactionManager.在构建事务管理器的时候,用到了dataSource对象,这个dataSource在构建Jdbc的时候也用到过,mybatisconfig传入的参数也有这个必须注意需要用同一个对象,即Bean用的单例模式
+```java
+   @Bean
+   public DataSource dataSource(){
+       DruidDataSource druidDataSource = new DruidDataSource();
+       druidDataSource.setDriverClassName(driver);
+       druidDataSource.setUrl(url);
+       druidDataSource.setUsername(username);
+       druidDataSource.setPassword(password);
+
+       return druidDataSource;
+   }
+   //代码可以看出,这个DataSource对象是用来链接数据库,也可以解释开启事务用到的DataSource是用这个
+
+```
+
+
+>@EnableTransactionManagement,这个注解放在SpringConfig类上,告诉Spring开启了事务
+@Transactional,在要开启事务的Service层接口的方法上,表示这个操作要开启事务功能.里面有一个参数**propagation**在业务层接口的方法可以用这个参数决定是否加入另一个事
+
+**常用的事务的配置**
+>![](https://raw.githubusercontent.com/Haiyang-coder/ImageRepository/main/action.png)
+>注意图片上的**rollbackFor**,JDBC默认只有运行时异常(**NULLponitException,算术运算异常和Error**)才会回滚
+
+**propagation参数**
+>![](https://raw.githubusercontent.com/Haiyang-coder/ImageRepository/main/dsf.png)
