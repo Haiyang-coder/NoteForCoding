@@ -1,11 +1,6 @@
 [TOC]
 # JVM参数设置
-- **Xms**: java堆内存大小
-- **Xmx**: java堆内存最大大小
-- **Xmn**: java堆内存中新生代大小(剩下的就是老年代大小了)
-- **XX:PermSize**: 永久代大小
-- **XX:MaxPermSize**: 永久代最大大小
-- **Xss**: 每个线程内存的大小
+
 
 下面详细介绍:
 ## 参数补充
@@ -20,3 +15,9 @@
 
 ### 4.Xss
 >限定了每个线程的栈内存大小
+
+### 5.XX:MaxTenuringThreshold
+>默认是15
+
+### 6.XX:PretenureSizeThreshold
+>大对象直接进去老年代
