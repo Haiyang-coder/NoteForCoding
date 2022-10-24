@@ -9,7 +9,6 @@
   
 ## 2.锁和受保护资源的关系
 >结论<font color=red>一把锁可以保护多个资源,但是多把锁不能保护一个资源</font>:原因也靠理解,多把锁,保护一个的话,不同锁之间不能保证了可见性.
-
 ## 3.如何做到一把锁保护多个资源
 
 ### (1)保护没有关联性的多个资源
@@ -18,3 +17,41 @@
   
 ### (2)保护有关联性的多个资源
 只要我们的**锁能覆盖所有受保护资源**就可以了,锁如果不指定参数那么默认就是this或者.class,这里有多个有关联的资源,所以要做到全覆盖,就要用到范围更大的.class,因为this是不只有一个.
+这里给个代码
+```java
+class Account {
+  private int balance;
+  // 转账
+  void transfer(Account target, int amt){
+    synchronized(Account.class) {
+      if (this.balance > amt) {
+        this.balance -= amt;
+        target.balance += amt;
+      }
+    }
+  } 
+}
+```
+确实解决了锁的覆盖的问题了,但是新的问题随之而来<font color=red>锁将所有的操作都变成了串行</font>就是每个用户执行转账操作都得排队,因为`.class`只有一个啊,这里<font color=red>锁的粒度太大了要缩小锁的范围</font>
+
+针对这个问题继续简化代码
+```java
+class Account {
+  private int balance;
+  // 转账
+  void transfer(Account target, int amt){
+    // 锁定转出账户
+    synchronized(this) {              
+      // 锁定转入账户
+      synchronized(target) {           
+        if (this.balance > amt) {
+          this.balance -= amt;
+          target.balance += amt;
+        }
+      }
+    }
+  } 
+}
+
+```
+这样的代码实现了只会锁定参加转账的双方,Atranfer(B),先锁定了A账号,在等待B账号,等到B账号资源后进行转账.但是依然造成了问题,就是下面的死锁问题(看专题)
