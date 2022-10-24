@@ -17,7 +17,7 @@
 >限定了每个线程的栈内存大小
 
 ### 5.XX:MaxTenuringThreshold
->默认是15
+>默认是15,年轻代经历过这个次数的GC进入了老年代
 
 ### 6.XX:PretenureSizeThreshold
 >大对象直接进去老年代
