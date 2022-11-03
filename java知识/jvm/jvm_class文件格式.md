@@ -24,4 +24,4 @@
 ![](https://raw.githubusercontent.com/Haiyang-coder/ImageRepository/main/changliangchi.png)
 4. 2就不是索引了,是直接的值,可见2出的类型不同,是UTF8类型,1是CLASS类型,和3一样都是索引
 
-## 2.Class中的类定义和属性
+其他方法也和常量池一样,先看属性结构,然后看占了多少字节,将对应的字节转换成对应的结构
