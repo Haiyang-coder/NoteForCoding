@@ -1,5 +1,7 @@
 [TOC]
 # 1.主索引(聚簇索引)
+>定义了主键就会按照主键来聚簇索引,如果没有定义主键,会按照第一个唯一非空的字段来聚簇索引,没有的话会自动生成一个
+
 ![](https://raw.githubusercontent.com/Haiyang-coder/ImageRepository/main/jib.png)
 上图是InnoDB搜索数据的示例,具体看网盘的4-4
 >- 他的数据结构和B+树并不是完全一样,同层节点增加了指针,构成了双向链表,方便了范围查找
