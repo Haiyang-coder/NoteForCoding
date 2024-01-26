@@ -1851,6 +1851,8 @@ T* Singleton<T>::value_ = NULL;
 
 > 注册一个函数，在程序结束时候调用，一般是用来销毁资源。
 
+这个单例类原理：你想要创建一个单例类，你直接把你的类型给他，这个类帮你在类内创建并管理这个对象。这个单例对象的全生命周期都不用你操心了。但是这里的删除工作不怎么优雅，可以看一下，Thread Local Singleton类的单例的注销
+
 **总结**
 
 单例的目的就是为了让==一个对象在程序中只存在一个==，这和==初始化函数只执行一次不谋而合==
@@ -1946,3 +1948,133 @@ class ThreadLocal : noncopyable
 - 出了这个函数还有pthread_key_delete。这个并不是删除这个数据的，数据的删除是create的时候指定的回调函数做的工作。delete的目标是消除这个数据键，如果数据键还有指向数据，可会调用这个构造函数
 
 - 还有对这个区域的值进行获取和修改的函数pthread_getspecific以及pthread_setspesific.
+
+**muduo给的例子：**
+
+muduo给出的例子比较有意思，他创建了一个`ThreadLocal<T>`类型的单例对象，这就保障了只有一个对象。让后将这个对象放到不同的线程中，让他打印这个对象保存的name，结果显示，虽然是一个对象，但是在不同的线程中打印出来的name是不一样的。
+
+
+
+## 单一本地线程类封装 ：ThreadLocalSingleton\<T> 
+
+这个类就是上一节最后给出的例子，让这个私有线程类变成一个单例，然后用他来实现，相同的对象在不同的线程中保存不同的值。
+
+**头文件：**
+
+```c++
+// Use of this source code is governed by a BSD-style license
+// that can be found in the License file.
+//
+// Author: Shuo Chen (chenshuo at chenshuo dot com)
+
+#ifndef MUDUO_BASE_THREADLOCALSINGLETON_H
+#define MUDUO_BASE_THREADLOCALSINGLETON_H
+
+#include "muduo/base/noncopyable.h"
+
+#include <assert.h>
+#include <pthread.h>
+
+namespace muduo
+{
+
+template<typename T>
+class ThreadLocalSingleton : noncopyable
+{
+ public:
+  ThreadLocalSingleton() = delete;
+  ~ThreadLocalSingleton() = delete;
+
+  static T& instance()
+  {
+    if (!t_value_)
+    {
+        //这里这个指针是每个线程一个，所以不会存在竞争，按照单线程的编码来就可以
+      t_value_ = new T();
+      deleter_.set(t_value_);
+    }
+    return *t_value_;
+  }
+
+  static T* pointer()
+  {
+    return t_value_;
+  }
+
+ private:
+  static void destructor(void* obj)
+  {
+    assert(obj == t_value_);
+    typedef char T_must_be_complete_type[sizeof(T) == 0 ? -1 : 1];
+    T_must_be_complete_type dummy; (void) dummy;
+    delete t_value_;
+    t_value_ = 0;
+  }
+
+  class Deleter
+  {
+   public:
+    Deleter()
+    {
+        //刚开始就建立了链接，调用的是外部类的销毁函数
+      pthread_key_create(&pkey_, &ThreadLocalSingleton::destructor);
+    }
+
+    ~Deleter()
+    {
+        //删除这个链接，同时也就调用了他的销毁函数。
+      pthread_key_delete(pkey_);
+    }
+
+    void set(T* newObj)
+    {
+      assert(pthread_getspecific(pkey_) == NULL);
+      pthread_setspecific(pkey_, newObj);
+    }
+
+    pthread_key_t pkey_;
+  };
+//因为是指针，所以是pod类型，所以可以用__thread修饰，同时又是static，所以每个线程都有一份相同的这个指针
+  static __thread T* t_value_;
+    //又封装了一个内部类，内部类的目的基本就是能够在这个对象被销毁的时候，能够自动的调用析构，起到了自动销毁数据的目的
+    //这个是static的，无论多少线程之只有一个，只有当所有程序结束的时候才会结束。
+   Deleter deleter_;
+};
+
+template<typename T>
+__thread T* ThreadLocalSingleton<T>::t_value_ = 0;
+
+template<typename T>
+typename ThreadLocalSingleton<T>::Deleter ThreadLocalSingleton<T>::deleter_;
+
+}  // namespace muduo
+#endif  // MUDUO_BASE_THREADLOCALSINGLETON_H
+
+```
+
+**总结：**
+
+想一下为了销毁一个对象为什么会这个费力？原因就是一个：单例。单例的问题就是：==什么时候销毁，因为单例，没有析构函数，所以不能delete==，现在我在这个单例对象里面放一个`static`的成员变量，在程序结束的时候，这个单例对象也会被销毁，这个static对象也会被销毁，所以就会调用析构函数。完成了声明的接力。
+
+自己想写一个单例模式的类：直接返回一个引用，这样的话你也不用管什么资源的删除。
+
+## 日志类：
+
+- 编译时错误
+- 运行时错误
+- 逻辑错误（这个用日志是最好的，直接用日志看哪里有逻辑问题）
+
+**头文件**
+
+太多了，3个文件加起来上千了，日志我也写了一个，大概知道怎么回事，我的是用epoll来实现，所以不用锁，用网卡的缓存当多线程情况下的日志队列，也行吧。
+
+而且我发现易道云的日志模块的设计思想和muduo的设计思想如出一辙。不过不如muduo的精细：
+
+- 首先构造一个logger的匿名对象（因为是匿名对象，所以这个语句完了之后就会直接销毁）
+- logger里面还有一个内部内impl，随着logger的构造一起构造
+- 将函数名，文件名，行号，日期都格式化
+- impl掉用loggstream
+- loggerstream重载了<<运算符
+- 将内容输出到缓冲区
+- 将缓冲区在输出到文件或者终端上
+- 清空系统的缓冲队列（在logger类的析构函数中调用）
