@@ -2038,6 +2038,7 @@ class ThreadLocalSingleton : noncopyable
   static __thread T* t_value_;
     //又封装了一个内部类，内部类的目的基本就是能够在这个对象被销毁的时候，能够自动的调用析构，起到了自动销毁数据的目的
     //这个是static的，无论多少线程之只有一个，只有当所有程序结束的时候才会结束。
+    //你自己封装的单例类不用这么麻烦
    Deleter deleter_;
 };
 
