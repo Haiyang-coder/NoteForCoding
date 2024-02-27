@@ -121,7 +121,7 @@ muduo网络库提供了3个注册的回调函数来处理这些事件。**连接
 
 
 
-## 定时器事件
+## 定时器事件：timer， timerqueue， timerid
 
 
 
@@ -142,7 +142,7 @@ muduo网络库提供了3个注册的回调函数来处理这些事件。**连接
 
 ![](./timer_act.png)
 
-## 一个线程如何通知另一个等待中的线程
+## 一个线程如何通知另一个等待中的线程：loop中的唤醒机制
 
 我之前说过一个问题，你想结束一个线程的等待，但是这个线程目前在阻塞状态，你如何将这个线程唤醒呢，现在我们来解决这个问题：
 
@@ -159,3 +159,113 @@ muduo网络库提供了3个注册的回调函数来处理这些事件。**连接
 以上都有**文件描述符**，所以可以用epoll模型来处理
 
 此外线程间还可以用==条件变量==
+
+
+
+
+
+
+
+## EventloopThread
+
+muduo是一个io线程一个loop,所以可以有多个io线程,多个io线程可以用io线程池来管理,这个类用来封装io线程
+
+功能：
+
+1. 创建也给线程
+
+2. 在该线程中创建一个loop对象，并让该对象处于loop状态
+
+
+
+
+
+## EventloopThreadPool
+
+开启若干个IO线程，并让这些IO线程处于事件循环状态
+
+
+
+## socket
+
+### Endian.h模块
+
+封装了字节序转换的相关函数
+
+### SocketOps模块
+
+对socket相关的系统调用进行RAII封装。全局函数
+
+### socket模块
+
+封装了socket的文件描述符
+
+### InetAddress
+
+对网络地址操作的封装
+
+
+
+## Accepttor
+
+有两个主要的数据成员
+
+- Socket套接字：主要是服务器端套接字，即server socket
+- channel： 用于观察socket的可读事件，并用于回调socket的可读事件，回调的内容就是建立连接
+
+主要作用是
+
+- 保存socket的文件描述符
+- 绑定socketfd
+- 监听socketfd
+- 处理监听回调：建立连接（回调的执行是channel，执行的回调是Acceptor写的，写的是接收连接）
+- 回调用户的回调函数：在连接建立成功的时候调用回调（回调的执行者是Acceptor，执行的回调是应用层写的。具体看上面怎么处理接受的连接）
+
+
+
+## TcpServer & TcpConnection
+
+### TcpServer
+
+含有的主要成员：
+
+- Acceptor成员（收到连接后会建立连接，将建立的socket信息通过回调传递给TcpServer ）
+- TcpConnection列表：（Acceptor创建完连接够回调函数，创建了TcpConnection）
+
+### TcpConnection
+
+##### 主要成员：
+
+- Socket：主要是服务器端套接字，即server socket
+- Chennel： 用于观察socket的可读可写事件
+
+#### 生存期管理
+
+
+
+### 连接建立时序图
+
+![](./TcpServerTimer.png)
+
+### 连接关闭时序图
+
+![](./tcpCloseTimer.png)
+
+这里想一下==为什么不能直接在第六步就销毁这个tcpconnection==：
+
+因为tcpconnection中有channel，此时channel正在等待回调函数的返回呢，你把他销毁了，等回调逐层返回的时候，直接就段错误了
+
+所以==如何管理Tcpconnection的生命周呢？==
+
+> 用智能指针：当连接到来，创建一个TcpConnection对象，立刻用share_ptr来管理，引用技术为1
+>
+> 在Channel中维护一个weak_ptr(tie),将share_ptr对象赋值给tie,引用计数仍然为1
+>
+> 当连接关闭，在handleEvnt中，将tie提升，得到一个share_ptr对象，引用计数就变成了2
+>
+> 这时候执行第六步，引用技术减一，就剩下了1，还不会销毁对象
+>
+> 进行下一次循环的时候，进行connetDestoryed函数的工作，开始销毁Channel，销毁方法运行完之后，引用计数为0，自动回收Tcpconncetion，连接也就彻底的关闭了
+
+
+
