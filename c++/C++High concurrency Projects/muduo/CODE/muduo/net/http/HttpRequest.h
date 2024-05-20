@@ -21,167 +21,197 @@
 
 namespace muduo
 {
-namespace net
-{
-
-class HttpRequest : public muduo::copyable
-{
- public:
-  enum Method
+  namespace net
   {
-    kInvalid, kGet, kPost, kHead, kPut, kDelete
-  };
-  enum Version
-  {
-    kUnknown, kHttp10, kHttp11
-  };
 
-  HttpRequest()
-    : method_(kInvalid),
-      version_(kUnknown)
-  {
-  }
-
-  void setVersion(Version v)
-  {
-    version_ = v;
-  }
-
-  Version getVersion() const
-  { return version_; }
-
-  bool setMethod(const char* start, const char* end)
-  {
-    assert(method_ == kInvalid);
-    string m(start, end);
-    if (m == "GET")
+    class HttpRequest : public muduo::copyable
     {
-      method_ = kGet;
-    }
-    else if (m == "POST")
-    {
-      method_ = kPost;
-    }
-    else if (m == "HEAD")
-    {
-      method_ = kHead;
-    }
-    else if (m == "PUT")
-    {
-      method_ = kPut;
-    }
-    else if (m == "DELETE")
-    {
-      method_ = kDelete;
-    }
-    else
-    {
-      method_ = kInvalid;
-    }
-    return method_ != kInvalid;
-  }
+    public:
+      enum Method
+      {
+        kInvalid,
+        kGet,
+        kPost,
+        kHead,
+        kPut,
+        kDelete
+      };
+      enum Version
+      {
+        kUnknown,
+        kHttp10,
+        kHttp11
+      };
 
-  Method method() const
-  { return method_; }
+      HttpRequest()
+          : method_(kInvalid),
+            version_(kUnknown)
+      {
+      }
 
-  const char* methodString() const
-  {
-    const char* result = "UNKNOWN";
-    switch(method_)
-    {
-      case kGet:
-        result = "GET";
-        break;
-      case kPost:
-        result = "POST";
-        break;
-      case kHead:
-        result = "HEAD";
-        break;
-      case kPut:
-        result = "PUT";
-        break;
-      case kDelete:
-        result = "DELETE";
-        break;
-      default:
-        break;
-    }
-    return result;
-  }
+      void setVersion(Version v)
+      {
+        version_ = v;
+      }
 
-  void setPath(const char* start, const char* end)
-  {
-    path_.assign(start, end);
-  }
+      Version getVersion() const
+      {
+        return version_;
+      }
 
-  const string& path() const
-  { return path_; }
+      bool setMethod(const char *start, const char *end)
+      {
+        assert(method_ == kInvalid);
+        string m(start, end);
+        if (m == "GET")
+        {
+          method_ = kGet;
+        }
+        else if (m == "POST")
+        {
+          method_ = kPost;
+        }
+        else if (m == "HEAD")
+        {
+          method_ = kHead;
+        }
+        else if (m == "PUT")
+        {
+          method_ = kPut;
+        }
+        else if (m == "DELETE")
+        {
+          method_ = kDelete;
+        }
+        else
+        {
+          method_ = kInvalid;
+        }
+        return method_ != kInvalid;
+      }
 
-  void setQuery(const char* start, const char* end)
-  {
-    query_.assign(start, end);
-  }
+      Method method() const
+      {
+        return method_;
+      }
 
-  const string& query() const
-  { return query_; }
+      const char *methodString() const
+      {
+        const char *result = "UNKNOWN";
+        switch (method_)
+        {
+        case kGet:
+          result = "GET";
+          break;
+        case kPost:
+          result = "POST";
+          break;
+        case kHead:
+          result = "HEAD";
+          break;
+        case kPut:
+          result = "PUT";
+          break;
+        case kDelete:
+          result = "DELETE";
+          break;
+        default:
+          break;
+        }
+        return result;
+      }
 
-  void setReceiveTime(Timestamp t)
-  { receiveTime_ = t; }
+      void setPath(const char *start, const char *end)
+      {
+        path_.assign(start, end);
+      }
 
-  Timestamp receiveTime() const
-  { return receiveTime_; }
+      const string &path() const
+      {
+        return path_;
+      }
 
-  void addHeader(const char* start, const char* colon, const char* end)
-  {
-    string field(start, colon);
-    ++colon;
-    while (colon < end && isspace(*colon))
-    {
-      ++colon;
-    }
-    string value(colon, end);
-    while (!value.empty() && isspace(value[value.size()-1]))
-    {
-      value.resize(value.size()-1);
-    }
-    headers_[field] = value;
-  }
+      void setQuery(const char *start, const char *end)
+      {
+        query_.assign(start, end);
+      }
 
-  string getHeader(const string& field) const
-  {
-    string result;
-    std::map<string, string>::const_iterator it = headers_.find(field);
-    if (it != headers_.end())
-    {
-      result = it->second;
-    }
-    return result;
-  }
+      const string &query() const
+      {
+        return query_;
+      }
 
-  const std::map<string, string>& headers() const
-  { return headers_; }
+      void setReceiveTime(Timestamp t)
+      {
+        receiveTime_ = t;
+      }
 
-  void swap(HttpRequest& that)
-  {
-    std::swap(method_, that.method_);
-    std::swap(version_, that.version_);
-    path_.swap(that.path_);
-    query_.swap(that.query_);
-    receiveTime_.swap(that.receiveTime_);
-    headers_.swap(that.headers_);
-  }
+      Timestamp receiveTime() const
+      {
+        return receiveTime_;
+      }
 
- private:
-  Method method_;
-  Version version_;
-  string path_;
-  string query_;
-  Timestamp receiveTime_;
-  std::map<string, string> headers_;
-};
+      void addHeader(const char *start, const char *colon, const char *end)
+      {
+        // 解析请求的头部，从冒号一分为二
+        string field(start, colon);
+        ++colon;
+        while (colon < end && isspace(*colon))
+        {
+          // 去除左空格
+          ++colon;
+        }
+        string value(colon, end);
+        while (!value.empty() && isspace(value[value.size() - 1]))
+        {
+          // 去除右空格
+          value.resize(value.size() - 1);
+        }
+        headers_[field] = value;
+      }
 
-}  // namespace net
-}  // namespace muduo
+      string getHeader(const string &field) const
+      {
+        string result;
+        std::map<string, string>::const_iterator it = headers_.find(field);
+        if (it != headers_.end())
+        {
+          result = it->second;
+        }
+        return result;
+      }
 
-#endif  // MUDUO_NET_HTTP_HTTPREQUEST_H
+      const std::map<string, string> &headers() const
+      {
+        return headers_;
+      }
+
+      void swap(HttpRequest &that)
+      {
+        std::swap(method_, that.method_);
+        std::swap(version_, that.version_);
+        path_.swap(that.path_);
+        query_.swap(that.query_);
+        receiveTime_.swap(that.receiveTime_);
+        headers_.swap(that.headers_);
+      }
+
+    private:
+      // 请求方法
+      Method method_;
+      // 协议版本 1.1/1.0
+      Version version_;
+      // 请求路径
+      string path_;
+      //
+      string query_;
+      // 请求时间
+      Timestamp receiveTime_;
+      // header列表
+      std::map<string, string> headers_;
+    };
+
+  } // namespace net
+} // namespace muduo
+
+#endif // MUDUO_NET_HTTP_HTTPREQUEST_H

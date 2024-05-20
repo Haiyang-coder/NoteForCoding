@@ -17,34 +17,49 @@
 
 namespace muduo
 {
-namespace net
-{
+  namespace net
+  {
 
-class EventLoop;
+    class EventLoop;
 
-class EventLoopThread : noncopyable
-{
- public:
-  typedef std::function<void(EventLoop*)> ThreadInitCallback;
+    class EventLoopThread : noncopyable
+    {
+      // muduo是一个io线程一个loop
+      // 所以可以有多个io线程
+      // 多个io线程可以用io线程池来管理
+      // 这个类用来封装io线程
+      // 功能：
+      // 1.创建也给线程
+      // 在该线程中创建一个loop对象，并让该对象处于loop状态
+    public:
+      typedef std::function<void(EventLoop *)> ThreadInitCallback;
 
-  EventLoopThread(const ThreadInitCallback& cb = ThreadInitCallback(),
-                  const string& name = string());
-  ~EventLoopThread();
-  EventLoop* startLoop();
+      EventLoopThread(const ThreadInitCallback &cb = ThreadInitCallback(),
+                      const string &name = string());
+      ~EventLoopThread();
+      // 启动线程，该线程就是io线程，在这个线程中创建一个eventloop对象
+      EventLoop *startLoop();
 
- private:
-  void threadFunc();
+    private:
+      // 线程函数
+      void threadFunc();
 
-  EventLoop* loop_ GUARDED_BY(mutex_);
-  bool exiting_;
-  Thread thread_;
-  MutexLock mutex_;
-  Condition cond_ GUARDED_BY(mutex_);
-  ThreadInitCallback callback_;
-};
+      // 指向一个eventloop对象
+      EventLoop *loop_ GUARDED_BY(mutex_);
+      // 是否退出
+      bool exiting_;
+      // 基于对象的编程思想，包含也给thread类
+      Thread thread_;
+      // 和条件变量配合使用
+      MutexLock mutex_;
+      Condition cond_ GUARDED_BY(mutex_);
+      // 回调函数，没有也可以，会有一个空的
+      // 如果回调函数不是空的，在loop循环之前被调用
+      // 相当于进行初始化，初始化完了之后在进行循环
+      ThreadInitCallback callback_;
+    };
 
-}  // namespace net
-}  // namespace muduo
+  } // namespace net
+} // namespace muduo
 
-#endif  // MUDUO_NET_EVENTLOOPTHREAD_H
-
+#endif // MUDUO_NET_EVENTLOOPTHREAD_H

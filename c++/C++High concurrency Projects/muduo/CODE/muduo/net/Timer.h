@@ -49,6 +49,7 @@ namespace muduo
       static int64_t numCreated() { return s_numCreated_.get(); }
 
     private:
+      // 定时器到达之后的回调函数
       const TimerCallback callback_;
       // 超时时刻，超时时刻到来的时候，定时器的回调函数会被调用
       Timestamp expiration_;

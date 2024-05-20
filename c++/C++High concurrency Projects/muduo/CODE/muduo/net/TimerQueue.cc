@@ -80,7 +80,7 @@ namespace muduo
       }
 
     } // namespace detail
-  }   // namespace net
+  } // namespace net
 } // namespace muduo
 
 using namespace muduo;
@@ -262,7 +262,7 @@ bool TimerQueue::insert(Timer *timer)
     (void)result;
   }
   {
-    std::pair<ActiveTimerSet::iterator, bool> result = activeTimers_.insert(ActiveTimer(timer, timer->sequence()));
+    std::pair<ActiveTimerSet::iterator, bool> result =.activeTimers_insert(ActiveTimer(timer, timer->sequence()));
     assert(result.second);
     (void)result;
   }

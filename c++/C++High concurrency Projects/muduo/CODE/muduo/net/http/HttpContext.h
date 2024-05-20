@@ -17,56 +17,64 @@
 
 namespace muduo
 {
-namespace net
-{
-
-class Buffer;
-
-class HttpContext : public muduo::copyable
-{
- public:
-  enum HttpRequestParseState
+  namespace net
   {
-    kExpectRequestLine,
-    kExpectHeaders,
-    kExpectBody,
-    kGotAll,
-  };
 
-  HttpContext()
-    : state_(kExpectRequestLine)
-  {
-  }
+    class Buffer;
 
-  // default copy-ctor, dtor and assignment are fine
+    class HttpContext : public muduo::copyable
+    {
+    public:
+      enum HttpRequestParseState
+      {
+        kExpectRequestLine,
+        kExpectHeaders,
+        kExpectBody,
+        kGotAll,
+      };
 
-  // return false if any error
-  bool parseRequest(Buffer* buf, Timestamp receiveTime);
+      HttpContext()
+          : state_(kExpectRequestLine)
+      {
+      }
 
-  bool gotAll() const
-  { return state_ == kGotAll; }
+      // default copy-ctor, dtor and assignment are fine
 
-  void reset()
-  {
-    state_ = kExpectRequestLine;
-    HttpRequest dummy;
-    request_.swap(dummy);
-  }
+      // return false if any error
+      bool parseRequest(Buffer *buf, Timestamp receiveTime);
 
-  const HttpRequest& request() const
-  { return request_; }
+      bool gotAll() const
+      {
+        return state_ == kGotAll;
+      }
 
-  HttpRequest& request()
-  { return request_; }
+      void reset()
+      {
+        state_ = kExpectRequestLine;
+        HttpRequest dummy;
+        request_.swap(dummy);
+      }
 
- private:
-  bool processRequestLine(const char* begin, const char* end);
+      const HttpRequest &request() const
+      {
+        return request_;
+      }
 
-  HttpRequestParseState state_;
-  HttpRequest request_;
-};
+      HttpRequest &request()
+      {
+        return request_;
+      }
 
-}  // namespace net
-}  // namespace muduo
+    private:
+      bool processRequestLine(const char *begin, const char *end);
 
-#endif  // MUDUO_NET_HTTP_HTTPCONTEXT_H
+      // 请求解析状态
+      HttpRequestParseState state_;
+      // http请求
+      HttpRequest request_;
+    };
+
+  } // namespace net
+} // namespace muduo
+
+#endif // MUDUO_NET_HTTP_HTTPCONTEXT_H

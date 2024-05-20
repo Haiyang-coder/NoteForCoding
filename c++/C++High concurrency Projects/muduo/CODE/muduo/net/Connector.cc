@@ -21,12 +21,12 @@ using namespace muduo::net;
 
 const int Connector::kMaxRetryDelayMs;
 
-Connector::Connector(EventLoop* loop, const InetAddress& serverAddr)
-  : loop_(loop),
-    serverAddr_(serverAddr),
-    connect_(false),
-    state_(kDisconnected),
-    retryDelayMs_(kInitRetryDelayMs)
+Connector::Connector(EventLoop *loop, const InetAddress &serverAddr)
+    : loop_(loop),
+      serverAddr_(serverAddr),
+      connect_(false),
+      state_(kDisconnected),
+      retryDelayMs_(kInitRetryDelayMs)
 {
   LOG_DEBUG << "ctor[" << this << "]";
 }
@@ -39,6 +39,8 @@ Connector::~Connector()
 
 void Connector::start()
 {
+  // 可以跨线程调用，是线程安全的
+  // 有可能再另外一个线程，这个对象又调用了断开连接
   connect_ = true;
   loop_->runInLoop(std::bind(&Connector::startInLoop, this)); // FIXME: unsafe
 }
@@ -77,42 +79,44 @@ void Connector::stopInLoop()
 
 void Connector::connect()
 {
+  // 创建一个非阻塞的套接字
   int sockfd = sockets::createNonblockingOrDie(serverAddr_.family());
+  // 发起连接
   int ret = sockets::connect(sockfd, serverAddr_.getSockAddr());
   int savedErrno = (ret == 0) ? 0 : errno;
   switch (savedErrno)
   {
-    case 0:
-    case EINPROGRESS:
-    case EINTR:
-    case EISCONN:
-      connecting(sockfd);
-      break;
+  case 0:
+  case EINPROGRESS:
+  case EINTR:
+  case EISCONN:
+    connecting(sockfd);
+    break;
 
-    case EAGAIN:
-    case EADDRINUSE:
-    case EADDRNOTAVAIL:
-    case ECONNREFUSED:
-    case ENETUNREACH:
-      retry(sockfd);
-      break;
+  case EAGAIN:
+  case EADDRINUSE:
+  case EADDRNOTAVAIL:
+  case ECONNREFUSED:
+  case ENETUNREACH:
+    retry(sockfd);
+    break;
 
-    case EACCES:
-    case EPERM:
-    case EAFNOSUPPORT:
-    case EALREADY:
-    case EBADF:
-    case EFAULT:
-    case ENOTSOCK:
-      LOG_SYSERR << "connect error in Connector::startInLoop " << savedErrno;
-      sockets::close(sockfd);
-      break;
+  case EACCES:
+  case EPERM:
+  case EAFNOSUPPORT:
+  case EALREADY:
+  case EBADF:
+  case EFAULT:
+  case ENOTSOCK:
+    LOG_SYSERR << "connect error in Connector::startInLoop " << savedErrno;
+    sockets::close(sockfd);
+    break;
 
-    default:
-      LOG_SYSERR << "Unexpected error in Connector::startInLoop " << savedErrno;
-      sockets::close(sockfd);
-      // connectErrorCallback_();
-      break;
+  default:
+    LOG_SYSERR << "Unexpected error in Connector::startInLoop " << savedErrno;
+    sockets::close(sockfd);
+    // connectErrorCallback_();
+    break;
   }
 }
 
@@ -130,6 +134,7 @@ void Connector::connecting(int sockfd)
   setState(kConnecting);
   assert(!channel_);
   channel_.reset(new Channel(loop_, sockfd));
+
   channel_->setWriteCallback(
       std::bind(&Connector::handleWrite, this)); // FIXME: unsafe
   channel_->setErrorCallback(
@@ -137,15 +142,18 @@ void Connector::connecting(int sockfd)
 
   // channel_->tie(shared_from_this()); is not working,
   // as channel_ is not managed by shared_ptr
+  // 关注的是错误和可写状态
   channel_->enableWriting();
 }
 
 int Connector::removeAndResetChannel()
 {
+  // 将channel从poller中移除关注，并且将channel置空
   channel_->disableAll();
   channel_->remove();
   int sockfd = channel_->fd();
   // Can't reset channel_ here, because we are inside Channel::handleEvent
+  // 这里不能直接调用channel，因为可能此时正在调用channelevent
   loop_->queueInLoop(std::bind(&Connector::resetChannel, this)); // FIXME: unsafe
   return sockfd;
 }
@@ -161,7 +169,12 @@ void Connector::handleWrite()
 
   if (state_ == kConnecting)
   {
+    // socketfd的可写事件被触发了，说明连接建立成功了
+    // 因为连接成功了，所以现在不需要关注channel的可写事件了
+    // 需要重置channel
+    // 就算失败了也需要清空channel发起重新连接
     int sockfd = removeAndResetChannel();
+    // 可写不代表一定成功了，再次确认一下
     int err = sockets::getSocketError(sockfd);
     if (err)
     {
@@ -212,9 +225,10 @@ void Connector::retry(int sockfd)
   setState(kDisconnected);
   if (connect_)
   {
+    // 重连的策略用了回避策略，最大回避时间是30s
     LOG_INFO << "Connector::retry - Retry connecting to " << serverAddr_.toIpPort()
              << " in " << retryDelayMs_ << " milliseconds. ";
-    loop_->runAfter(retryDelayMs_/1000.0,
+    loop_->runAfter(retryDelayMs_ / 1000.0,
                     std::bind(&Connector::startInLoop, shared_from_this()));
     retryDelayMs_ = std::min(retryDelayMs_ * 2, kMaxRetryDelayMs);
   }
@@ -223,4 +237,3 @@ void Connector::retry(int sockfd)
     LOG_DEBUG << "do not connect";
   }
 }
-

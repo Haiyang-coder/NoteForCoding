@@ -14,50 +14,51 @@
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <stdio.h>  // snprintf
+#include <stdio.h> // snprintf
 
 using namespace muduo;
 using namespace muduo::net;
 
 Socket::~Socket()
 {
+  // RAII封装的，不用自己调用close
   sockets::close(sockfd_);
 }
 
-bool Socket::getTcpInfo(struct tcp_info* tcpi) const
+bool Socket::getTcpInfo(struct tcp_info *tcpi) const
 {
   socklen_t len = sizeof(*tcpi);
   memZero(tcpi, len);
   return ::getsockopt(sockfd_, SOL_TCP, TCP_INFO, tcpi, &len) == 0;
 }
 
-bool Socket::getTcpInfoString(char* buf, int len) const
+bool Socket::getTcpInfoString(char *buf, int len) const
 {
   struct tcp_info tcpi;
   bool ok = getTcpInfo(&tcpi);
   if (ok)
   {
     snprintf(buf, len, "unrecovered=%u "
-             "rto=%u ato=%u snd_mss=%u rcv_mss=%u "
-             "lost=%u retrans=%u rtt=%u rttvar=%u "
-             "sshthresh=%u cwnd=%u total_retrans=%u",
-             tcpi.tcpi_retransmits,  // Number of unrecovered [RTO] timeouts
-             tcpi.tcpi_rto,          // Retransmit timeout in usec
-             tcpi.tcpi_ato,          // Predicted tick of soft clock in usec
+                       "rto=%u ato=%u snd_mss=%u rcv_mss=%u "
+                       "lost=%u retrans=%u rtt=%u rttvar=%u "
+                       "sshthresh=%u cwnd=%u total_retrans=%u",
+             tcpi.tcpi_retransmits, // Number of unrecovered [RTO] timeouts
+             tcpi.tcpi_rto,         // Retransmit timeout in usec
+             tcpi.tcpi_ato,         // Predicted tick of soft clock in usec
              tcpi.tcpi_snd_mss,
              tcpi.tcpi_rcv_mss,
-             tcpi.tcpi_lost,         // Lost packets
-             tcpi.tcpi_retrans,      // Retransmitted packets out
-             tcpi.tcpi_rtt,          // Smoothed round trip time in usec
-             tcpi.tcpi_rttvar,       // Medium deviation
+             tcpi.tcpi_lost,    // Lost packets
+             tcpi.tcpi_retrans, // Retransmitted packets out
+             tcpi.tcpi_rtt,     // Smoothed round trip time in usec
+             tcpi.tcpi_rttvar,  // Medium deviation
              tcpi.tcpi_snd_ssthresh,
              tcpi.tcpi_snd_cwnd,
-             tcpi.tcpi_total_retrans);  // Total retransmits for entire connection
+             tcpi.tcpi_total_retrans); // Total retransmits for entire connection
   }
   return ok;
 }
 
-void Socket::bindAddress(const InetAddress& addr)
+void Socket::bindAddress(const InetAddress &addr)
 {
   sockets::bindOrDie(sockfd_, addr.getSockAddr());
 }
@@ -67,7 +68,7 @@ void Socket::listen()
   sockets::listenOrDie(sockfd_);
 }
 
-int Socket::accept(InetAddress* peeraddr)
+int Socket::accept(InetAddress *peeraddr)
 {
   struct sockaddr_in6 addr;
   memZero(&addr, sizeof addr);
@@ -84,6 +85,8 @@ void Socket::shutdownWrite()
   sockets::shutdownWrite(sockfd_);
 }
 
+// 涉及到negel算法
+// 如果频繁发送数据包，会把几个数据包合在一块发送
 void Socket::setTcpNoDelay(bool on)
 {
   int optval = on ? 1 : 0;
@@ -100,6 +103,7 @@ void Socket::setReuseAddr(bool on)
   // FIXME CHECK
 }
 
+// 端口复用
 void Socket::setReusePort(bool on)
 {
 #ifdef SO_REUSEPORT
@@ -118,6 +122,8 @@ void Socket::setReusePort(bool on)
 #endif
 }
 
+// 开启tcp层的心跳
+// 如果应用层有心跳的话可以不用设置
 void Socket::setKeepAlive(bool on)
 {
   int optval = on ? 1 : 0;
@@ -125,4 +131,3 @@ void Socket::setKeepAlive(bool on)
                &optval, static_cast<socklen_t>(sizeof optval));
   // FIXME CHECK
 }
-

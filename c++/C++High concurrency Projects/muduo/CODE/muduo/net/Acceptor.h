@@ -18,46 +18,55 @@
 
 namespace muduo
 {
-namespace net
-{
+  namespace net
+  {
 
-class EventLoop;
-class InetAddress;
+    class EventLoop;
+    class InetAddress;
 
-///
-/// Acceptor of incoming TCP connections.
-///
-class Acceptor : noncopyable
-{
- public:
-  typedef std::function<void (int sockfd, const InetAddress&)> NewConnectionCallback;
+    ///
+    /// Acceptor of incoming TCP connections.
+    ///
+    class Acceptor : noncopyable
+    {
+    public:
+      typedef std::function<void(int sockfd, const InetAddress &)> NewConnectionCallback;
 
-  Acceptor(EventLoop* loop, const InetAddress& listenAddr, bool reuseport);
-  ~Acceptor();
+      Acceptor(EventLoop *loop, const InetAddress &listenAddr, bool reuseport);
+      ~Acceptor();
 
-  void setNewConnectionCallback(const NewConnectionCallback& cb)
-  { newConnectionCallback_ = cb; }
+      void setNewConnectionCallback(const NewConnectionCallback &cb)
+      {
+        newConnectionCallback_ = cb;
+      }
 
-  void listen();
+      void listen();
 
-  bool listening() const { return listening_; }
+      bool listening() const { return listening_; }
 
-  // Deprecated, use the correct spelling one above.
-  // Leave the wrong spelling here in case one needs to grep it for error messages.
-  // bool listenning() const { return listening(); }
+      // Deprecated, use the correct spelling one above.
+      // Leave the wrong spelling here in case one needs to grep it for error messages.
+      // bool listenning() const { return listening(); }
 
- private:
-  void handleRead();
+    private:
+      // 处理客户端的连接事件
+      // 建立连接并调用应用层的回调函数
+      void handleRead();
 
-  EventLoop* loop_;
-  Socket acceptSocket_;
-  Channel acceptChannel_;
-  NewConnectionCallback newConnectionCallback_;
-  bool listening_;
-  int idleFd_;
-};
+      // 所有需要loop循环监听的都需要这个
+      EventLoop *loop_;
+      // 连接套接字
+      Socket acceptSocket_;
+      // 通道
+      Channel acceptChannel_;
+      // 引用层设置的回调函数
+      NewConnectionCallback newConnectionCallback_;
+      // 是否正在监听的标志位
+      bool listening_;
+      int idleFd_;
+    };
 
-}  // namespace net
-}  // namespace muduo
+  } // namespace net
+} // namespace muduo
 
-#endif  // MUDUO_NET_ACCEPTOR_H
+#endif // MUDUO_NET_ACCEPTOR_H

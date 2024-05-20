@@ -15,8 +15,11 @@
 using namespace muduo;
 using namespace muduo::net;
 
-void HttpResponse::appendToBuffer(Buffer* output) const
+void HttpResponse::appendToBuffer(Buffer *output) const
 {
+  // 最终发送给客户端的buffer
+
+  // 响应头
   char buf[32];
   snprintf(buf, sizeof buf, "HTTP/1.1 %d ", statusCode_);
   output->append(buf);
@@ -34,7 +37,7 @@ void HttpResponse::appendToBuffer(Buffer* output) const
     output->append("Connection: Keep-Alive\r\n");
   }
 
-  for (const auto& header : headers_)
+  for (const auto &header : headers_)
   {
     output->append(header.first);
     output->append(": ");

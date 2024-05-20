@@ -46,6 +46,7 @@ Channel::~Channel()
 
 void Channel::tie(const std::shared_ptr<void> &obj)
 {
+  // 这里保存着一个tcpconncetion的智能指针的弱指针
   tie_ = obj;
   tied_ = true;
 }

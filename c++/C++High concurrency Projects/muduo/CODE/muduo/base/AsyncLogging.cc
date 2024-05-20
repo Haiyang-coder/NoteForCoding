@@ -11,27 +11,27 @@
 
 using namespace muduo;
 
-AsyncLogging::AsyncLogging(const string& basename,
+AsyncLogging::AsyncLogging(const string &basename,
                            off_t rollSize,
                            int flushInterval)
-  : flushInterval_(flushInterval),
-    running_(false),
-    basename_(basename),
-    rollSize_(rollSize),
-    thread_(std::bind(&AsyncLogging::threadFunc, this), "Logging"),
-    latch_(1),
-    mutex_(),
-    cond_(mutex_),
-    currentBuffer_(new Buffer),
-    nextBuffer_(new Buffer),
-    buffers_()
+    : flushInterval_(flushInterval),
+      running_(false),
+      basename_(basename),
+      rollSize_(rollSize),
+      thread_(std::bind(&AsyncLogging::threadFunc, this), "Logging"),
+      latch_(1),
+      mutex_(),
+      cond_(mutex_),
+      currentBuffer_(new Buffer),
+      nextBuffer_(new Buffer),
+      buffers_()
 {
   currentBuffer_->bzero();
   nextBuffer_->bzero();
   buffers_.reserve(16);
 }
 
-void AsyncLogging::append(const char* logline, int len)
+void AsyncLogging::append(const char *logline, int len)
 {
   muduo::MutexLockGuard lock(mutex_);
   if (currentBuffer_->avail() > len)
@@ -40,6 +40,7 @@ void AsyncLogging::append(const char* logline, int len)
   }
   else
   {
+    // 缓冲区不够用了，将这个缓冲区放到已经填满的缓冲区队列中
     buffers_.push_back(std::move(currentBuffer_));
 
     if (nextBuffer_)
@@ -74,7 +75,7 @@ void AsyncLogging::threadFunc()
 
     {
       muduo::MutexLockGuard lock(mutex_);
-      if (buffers_.empty())  // unusual usage!
+      if (buffers_.empty()) // unusual usage!
       {
         cond_.waitForSeconds(flushInterval_);
       }
@@ -91,16 +92,20 @@ void AsyncLogging::threadFunc()
 
     if (buffersToWrite.size() > 25)
     {
+      // 这里是判断前端死循环拼命写日志导致了日志堆积/
+      // 也就是前端拼命申请缓冲区放入直到有25块
+      // 100m的日志来不及处理
       char buf[256];
       snprintf(buf, sizeof buf, "Dropped log messages at %s, %zd larger buffers\n",
                Timestamp::now().toFormattedString().c_str(),
-               buffersToWrite.size()-2);
+               buffersToWrite.size() - 2);
       fputs(buf, stderr);
       output.append(buf, static_cast<int>(strlen(buf)));
-      buffersToWrite.erase(buffersToWrite.begin()+2, buffersToWrite.end());
+      // 出了前两块日志，其他的日志全部丢掉
+      buffersToWrite.erase(buffersToWrite.begin() + 2, buffersToWrite.end());
     }
 
-    for (const auto& buffer : buffersToWrite)
+    for (const auto &buffer : buffersToWrite)
     {
       // FIXME: use unbuffered stdio FILE ? or use ::writev ?
       output.append(buffer->data(), buffer->length());
@@ -109,6 +114,7 @@ void AsyncLogging::threadFunc()
     if (buffersToWrite.size() > 2)
     {
       // drop non-bzero-ed buffers, avoid trashing
+      // 都已经写完了，我们仅仅保留两块给newbuffer1和newbuffer2
       buffersToWrite.resize(2);
     }
 
@@ -128,9 +134,10 @@ void AsyncLogging::threadFunc()
       newBuffer2->reset();
     }
 
+    // 这里缓冲区申请都是用智能指针来管理的
+    // clear之后会自动销毁
     buffersToWrite.clear();
     output.flush();
   }
   output.flush();
 }
-

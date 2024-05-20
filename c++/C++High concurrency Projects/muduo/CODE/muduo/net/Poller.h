@@ -59,6 +59,7 @@ namespace muduo
 
     protected:
       typedef std::map<int, Channel *> ChannelMap;
+      //
       ChannelMap channels_;
 
     private:
