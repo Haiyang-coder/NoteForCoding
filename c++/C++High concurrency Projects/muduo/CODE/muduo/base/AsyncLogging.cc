@@ -33,9 +33,12 @@ AsyncLogging::AsyncLogging(const string &basename,
 
 void AsyncLogging::append(const char *logline, int len)
 {
+  // 这就是前台所有的线程调用的入口函数
   muduo::MutexLockGuard lock(mutex_);
+  // 加一个锁，同一时间只允许一个线程将日志写入内存缓冲区
   if (currentBuffer_->avail() > len)
   {
+    // 当前的缓冲区可以容纳，直接写入当前的缓冲区中
     currentBuffer_->append(logline, len);
   }
   else
@@ -43,8 +46,12 @@ void AsyncLogging::append(const char *logline, int len)
     // 缓冲区不够用了，将这个缓冲区放到已经填满的缓冲区队列中
     buffers_.push_back(std::move(currentBuffer_));
 
+    // 将备用缓冲区编程当前缓冲区使用
+    // 只涉及到指针的拷贝，还是很快的
+    // 如果备用缓冲区没有，新建一个在移动指针
     if (nextBuffer_)
     {
+
       currentBuffer_ = std::move(nextBuffer_);
     }
     else
@@ -52,6 +59,7 @@ void AsyncLogging::append(const char *logline, int len)
       currentBuffer_.reset(new Buffer); // Rarely happens
     }
     currentBuffer_->append(logline, len);
+    // 代码运行到这里，意味着有一个缓冲区已经满了，所以唤醒刷盘线程进行落盘操作
     cond_.notify();
   }
 }
@@ -61,10 +69,12 @@ void AsyncLogging::threadFunc()
   assert(running_ == true);
   latch_.countDown();
   LogFile output(basename_, rollSize_, false);
+  // 这是两个临时的落盘缓存
   BufferPtr newBuffer1(new Buffer);
   BufferPtr newBuffer2(new Buffer);
   newBuffer1->bzero();
   newBuffer2->bzero();
+  // 存储着落盘缓存块的容器
   BufferVector buffersToWrite;
   buffersToWrite.reserve(16);
   while (running_)
@@ -75,10 +85,12 @@ void AsyncLogging::threadFunc()
 
     {
       muduo::MutexLockGuard lock(mutex_);
+      // 倒计时结束也会刷盘，如果容器是空的继续等待
       if (buffers_.empty()) // unusual usage!
       {
         cond_.waitForSeconds(flushInterval_);
       }
+      // 把当前的缓存一块放上
       buffers_.push_back(std::move(currentBuffer_));
       currentBuffer_ = std::move(newBuffer1);
       buffersToWrite.swap(buffers_);
